@@ -2,6 +2,9 @@ package com.majestic.customerrorscreen
 
 import android.content.Context
 import android.content.Intent
+import android.util.Log
+import com.google.gson.Gson
+import java.lang.Thread.UncaughtExceptionHandler
 
 class GlobalExceptionHandler private constructor(
     private val applicationContext: Context,
@@ -9,9 +12,32 @@ class GlobalExceptionHandler private constructor(
     private val activityToBeLaunched: Class<*>,
 ) : Thread.UncaughtExceptionHandler {
 
-    private companion object {
+    companion object {
 
-        const val INTENT_DATA_NAME = "INTENT_DATA_NAME"
+        private const val INTENT_DATA_NAME = "INTENT_DATA_NAME"
+        private const val TAG = "GlobalExceptionHandler"
+
+        fun initialize(
+            applicationContext: Context,
+            activityToBeLaunched: Class<*>,
+        ) {
+            val handler = GlobalExceptionHandler(
+                applicationContext = applicationContext,
+                defaultHandler = Thread.getDefaultUncaughtExceptionHandler() as UncaughtExceptionHandler,
+                activityToBeLaunched = activityToBeLaunched,
+            )
+
+            Thread.setDefaultUncaughtExceptionHandler(handler)
+        }
+
+        fun getThrowableFromIntent(intent: Intent): Throwable? =
+            try {
+                Gson().fromJson(intent.getStringExtra(INTENT_DATA_NAME), Throwable::class.java)
+            } catch (e: Exception) {
+                Log.e(TAG, "getThrowableFromIntent: ", e)
+
+                null
+            }
 
     }
 
@@ -29,7 +55,7 @@ class GlobalExceptionHandler private constructor(
         exception: Throwable
     ) {
         val crashedIntent = Intent(applicationContext, activity).also {
-            it.putExtra(INTENT_DATA_NAME, exception)
+            it.putExtra(INTENT_DATA_NAME, Gson().toJson(exception))
         }
 
         crashedIntent.addFlags(
